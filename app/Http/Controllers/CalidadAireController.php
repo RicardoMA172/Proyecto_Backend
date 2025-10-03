@@ -189,4 +189,45 @@ class CalidadAireController extends Controller
 
         return response()->json($records);
     }
+    
+
+
+
+    public function exportCsv()
+{
+    $filename = 'registros_calidad_aire_' . date('Ymd_His') . '.csv';
+    $records = DB::table('registros_calidad_aire')->orderBy('fecha_hora')->get();
+
+    // Abrir flujo de salida
+    $handle = fopen('php://output', 'w');
+
+    // Cabeceras HTTP para forzar descarga
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+    // Cabecera del CSV
+    fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
+
+    // Contenido
+    foreach ($records as $row) {
+        fputcsv($handle, [
+            $row->id,
+            $row->fecha_hora,
+            $row->co,
+            $row->nox,
+            $row->sox,
+            $row->pm10,
+            $row->pm25,
+            $row->temp,
+            $row->hum,
+            $row->created_at,
+            $row->updated_at,
+        ]);
+    }
+
+    fclose($handle);
+    exit;
+}
+
+
 }
