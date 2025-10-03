@@ -28,7 +28,7 @@ Route::get('/device/by-date', [CalidadAireController::class, 'ByDate']);
 // NUEVO: Obtener los últimos registros de un día específico
 Route::get('/device/latest-by-date', [CalidadAireController::class, 'LatestByDate']);
 
-Route::get('/device/export-csv', [CalidadAireController::class, 'exportCsv']);
+Route::get('/device/export-csv', [App\Http\Controllers\CalidadAireController::class, 'exportCsv']);
 
 
 
