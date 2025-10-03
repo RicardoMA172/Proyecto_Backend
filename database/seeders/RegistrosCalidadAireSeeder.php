@@ -9,6 +9,7 @@ class RegistrosCalidadAireSeeder extends Seeder
 {
     public function run(): void
     {
+
         DB::table('registros_calidad_aire')->insert([
             ['id'=>1,'co'=>20.5,'nox'=>10.2,'sox'=>5.1,'pm10'=>50.3,'pm25'=>25.7,'fecha_hora'=>'2025-09-23 08:00:00','created_at'=>'2025-09-23 06:13:38','updated_at'=>'2025-09-23 06:13:38'],
             ['id'=>2,'co'=>22.1,'nox'=>11,'sox'=>5.5,'pm10'=>45.2,'pm25'=>20.4,'fecha_hora'=>'2025-09-23 09:00:00','created_at'=>'2025-09-23 06:13:38','updated_at'=>'2025-09-23 06:13:38'],

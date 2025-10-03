@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 
-
 class CalidadAireController extends Controller
 {
     public function dashboard()
@@ -40,6 +39,16 @@ class CalidadAireController extends Controller
                 'max'     => DB::table($tabla)->max('pm25'),
                 'min'     => DB::table($tabla)->min('pm25'),
             ],
+            'temp' => [
+                'promedio' => DB::table($tabla)->avg('temp'),
+                'max'     => DB::table($tabla)->max('temp'),
+                'min'     => DB::table($tabla)->min('temp'),
+            ],
+            'hum' => [
+                'promedio' => DB::table($tabla)->avg('hum'),
+                'max'     => DB::table($tabla)->max('hum'),
+                'min'     => DB::table($tabla)->min('hum'),
+            ],
         ]);
     }
 
@@ -49,15 +58,18 @@ class CalidadAireController extends Controller
     public function sox() { return DB::table('registros_calidad_aire')->select('fecha_hora','sox')->orderBy('fecha_hora')->get(); }
     public function pm10(){ return DB::table('registros_calidad_aire')->select('fecha_hora','pm10')->orderBy('fecha_hora')->get(); }
     public function pm25(){ return DB::table('registros_calidad_aire')->select('fecha_hora','pm25')->orderBy('fecha_hora')->get(); }
+    public function temp(){ return DB::table('registros_calidad_aire')->select('fecha_hora','temp')->orderBy('fecha_hora')->get(); }
+    public function hum(){ return DB::table('registros_calidad_aire')->select('fecha_hora','hum')->orderBy('fecha_hora')->get(); }
 
     // -----------------------------------------------------------------
-    // NUEVO: Recibir datos desde ESP32 (POST /api/device/data)
+    // Recibir datos desde ESP32 (POST /api/device/data)
     // -----------------------------------------------------------------
     public function storeDeviceData(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id'  => 'sometimes|string|max:100',
             'fecha_hora' => 'sometimes|date',
+            'temp'       => 'nullable|numeric',
+            'hum'        => 'nullable|numeric',
             'co'         => 'nullable|numeric',
             'nox'        => 'nullable|numeric',
             'sox'        => 'nullable|numeric',
@@ -73,12 +85,14 @@ class CalidadAireController extends Controller
 
         // Si no mandan fecha_hora, usar now()
         if (empty($data['fecha_hora'])) {
-            $data['fecha_hora'] = Carbon::now();
+            $data['fecha_hora'] = Carbon::now()->toDateTimeString();
         }
 
-        DB::table('registros_calidad_aire')->insert([
-            'id'  => $data['id'] ?? 'esp32',
+        // Insertar sin especificar `id` (autoincrement)
+        $insertId = DB::table('registros_calidad_aire')->insertGetId([
             'fecha_hora' => $data['fecha_hora'],
+            'temp'       => $data['temp'] ?? null,
+            'hum'        => $data['hum'] ?? null,
             'co'         => $data['co'] ?? null,
             'nox'        => $data['nox'] ?? null,
             'sox'        => $data['sox'] ?? null,
@@ -88,12 +102,11 @@ class CalidadAireController extends Controller
             'updated_at' => now(),
         ]);
 
-        return response()->json(['success' => true], 201);
+        return response()->json(['success' => true, 'id' => $insertId], 201);
     }
 
     // -----------------------------------------------------------------
-    // NUEVO: Obtener CO entre fechas (GET /api/device/co?start=...&end=...)
-    // -----------------------------------------------------------------
+    // Otros métodos existentes...
     public function coBetween(Request $request)
     {
         $start = $request->query('start');
@@ -112,9 +125,6 @@ class CalidadAireController extends Controller
         return response()->json($datos);
     }
 
-    // -----------------------------------------------------------------
-    // NUEVO: Obtener últimos registros (GET /api/device/latest?limit=50)
-    // -----------------------------------------------------------------
     public function latest(Request $request)
     {
         $limit = intval($request->query('limit', 5));
@@ -126,11 +136,10 @@ class CalidadAireController extends Controller
         return response()->json($datos);
     }
 
-    // Todos los registros (para la gráfica)
     public function allRecords()
     {
         $datos = DB::table('registros_calidad_aire')
-            ->orderBy('fecha_hora', 'asc') // de más antiguo a más reciente
+            ->orderBy('fecha_hora', 'asc')
             ->get();
 
         return response()->json($datos);
@@ -151,63 +160,33 @@ class CalidadAireController extends Controller
         return response()->json($datos);
     }
 
-
-
     public function ByDate(Request $request)
-{
-    $date = $request->query('date'); // YYYY-MM-DD
-    $start = $date . ' 00:00:00';
-    $end   = $date . ' 23:59:59';
+    {
+        $date = $request->query('date'); // YYYY-MM-DD
+        $start = $date . ' 00:00:00';
+        $end   = $date . ' 23:59:59';
 
-    $records = DB::table('registros_calidad_aire')
-        ->whereBetween('fecha_hora', [$start, $end])
-        ->orderBy('fecha_hora', 'asc')
-        ->get();
+        $records = DB::table('registros_calidad_aire')
+            ->whereBetween('fecha_hora', [$start, $end])
+            ->orderBy('fecha_hora', 'asc')
+            ->get();
 
-    return response()->json($records);
-}
+        return response()->json($records);
+    }
 
-      
     public function LatestByDate(Request $request) {
-    $date = $request->query('date'); // YYYY-MM-DD
-    $limit = $request->query('limit', 10);
+        $date = $request->query('date'); // YYYY-MM-DD
+        $limit = $request->query('limit', 10);
 
-    $start = $date . ' 00:00:00';
-    $end = $date . ' 23:59:59';
+        $start = $date . ' 00:00:00';
+        $end = $date . ' 23:59:59';
 
-    $records = DB::table('registros_calidad_aire') // ✅ tabla correcta
-        ->whereBetween('fecha_hora', [$start, $end])
-        ->orderBy('fecha_hora', 'desc')
-        ->limit($limit)
-        ->get();
+        $records = DB::table('registros_calidad_aire')
+            ->whereBetween('fecha_hora', [$start, $end])
+            ->orderBy('fecha_hora', 'desc')
+            ->limit($limit)
+            ->get();
 
-    return response()->json($records);
+        return response()->json($records);
+    }
 }
-
-
-
-
-}
-
-
-/*
-public function store (Request $request)
-{
-    // Obtener los datos enviados desde el ESP32
-    $neighborId = $request-›input ('neighbor_id');
-    $alarmId = $request-›input( 'alarm_id');
-
-    // Crear el registro en la base de datos
-    Activation::create([
-        'neighbor_id' => $neighborId,
-        'alarm_id' => $alarmId,
-    ]);
-
-    // Responder al ESP32 con una confirmación
-    //return response() ->json(['message' => 'Registro creado correctamente' ]);
-    
-    return response() ->json([
-    'message' => 'Registro creado correctamente',
-    'reload' => true,
-    ]);
-}*/
