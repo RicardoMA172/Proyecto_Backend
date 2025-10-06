@@ -10,5 +10,6 @@ return [
         'https://boisterous-cajeta-e9a57b.netlify.app',],
     
     'allowed_headers' => ['*'],
-    'supports_credentials' => false,
+    // Allow cookies/credentials from the frontend (required for Sanctum SPA auth)
+    'supports_credentials' => true,
 ];

@@ -169,7 +169,9 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // In production (HTTPS) this should be true so cookies are only sent over TLS.
+    // Keep configurable via .env for local development.
+    'secure' => env('SESSION_SECURE_COOKIE', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,7 +201,9 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    // For cross-site (frontend on different domain) cookie usage (Sanctum SPA),
+    // set SameSite to 'none' and secure=true. This is configurable via .env.
+    'same_site' => env('SESSION_SAME_SITE', 'none'),
 
     /*
     |--------------------------------------------------------------------------
