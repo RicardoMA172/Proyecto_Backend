@@ -18,6 +18,9 @@ class RegistroCalidadAire extends Model
         'sox',
         'pm10',
         'pm25',
+        'temp',
+        'hum',
+        'amon',
         'fecha_hora',
         'payload'
     ];

@@ -49,6 +49,11 @@ class CalidadAireController extends Controller
                 'max'     => DB::table($tabla)->max('hum'),
                 'min'     => DB::table($tabla)->min('hum'),
             ],
+            'amon' => [
+                'promedio' => DB::table($tabla)->avg('amon'),
+                'max'     => DB::table($tabla)->max('amon'),
+                'min'     => DB::table($tabla)->min('amon'),
+            ],
         ]);
     }
 
@@ -59,7 +64,9 @@ class CalidadAireController extends Controller
     public function pm10(){ return DB::table('registros_calidad_aire')->select('fecha_hora','pm10')->orderBy('fecha_hora')->get(); }
     public function pm25(){ return DB::table('registros_calidad_aire')->select('fecha_hora','pm25')->orderBy('fecha_hora')->get(); }
     public function temp(){ return DB::table('registros_calidad_aire')->select('fecha_hora','temp')->orderBy('fecha_hora')->get(); }
-    public function hum(){ return DB::table('registros_calidad_aire')->select('fecha_hora','hum')->orderBy('fecha_hora')->get(); }
+    public function hum(){ return $this->formatRecords(DB::table('registros_calidad_aire')->select('fecha_hora','hum')->orderBy('fecha_hora')->get()); }
+    public function amon(){ return $this->formatRecords(DB::table('registros_calidad_aire')->select('fecha_hora','amon')->orderBy('fecha_hora')->get()); }
+
 
     // -----------------------------------------------------------------
     // Recibir datos desde ESP32 (POST /api/device/data)
@@ -70,6 +77,7 @@ class CalidadAireController extends Controller
             'fecha_hora' => 'sometimes|date',
             'temp'       => 'nullable|numeric',
             'hum'        => 'nullable|numeric',
+            'amon'       => 'nullable|numeric',
             'co'         => 'nullable|numeric',
             'nox'        => 'nullable|numeric',
             'sox'        => 'nullable|numeric',
@@ -93,6 +101,7 @@ class CalidadAireController extends Controller
             'fecha_hora' => $data['fecha_hora'],
             'temp'       => $data['temp'] ?? null,
             'hum'        => $data['hum'] ?? null,
+            'amon'       => $data['amon'] ?? null,
             'co'         => $data['co'] ?? null,
             'nox'        => $data['nox'] ?? null,
             'sox'        => $data['sox'] ?? null,
@@ -122,9 +131,11 @@ class CalidadAireController extends Controller
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
-        return response()->json($datos);
+        return response()->json($this->formatRecords($datos));
     }
 
+
+    // Obtener los últimos N registros (por defecto 5)
     public function latest(Request $request)
     {
         $limit = intval($request->query('limit', 5));
@@ -133,18 +144,22 @@ class CalidadAireController extends Controller
             ->limit($limit)
             ->get();
 
-        return response()->json($datos);
+        return response()->json($this->formatRecords($datos));
     }
 
+
+    // Obtener todos los registros
     public function allRecords()
     {
         $datos = DB::table('registros_calidad_aire')
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
-        return response()->json($datos);
+        return response()->json($this->formatRecords($datos));
     }
     
+
+    // Obtener registros desde una fecha/hora específica
     public function since(Request $request)
     {
         $since = $request->query('since');
@@ -157,9 +172,11 @@ class CalidadAireController extends Controller
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
-        return response()->json($datos);
+        return response()->json($this->formatRecords($datos));
     }
 
+
+    // Obtener registros de un día específico
     public function ByDate(Request $request)
     {
         $date = $request->query('date'); // YYYY-MM-DD
@@ -171,9 +188,11 @@ class CalidadAireController extends Controller
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
-        return response()->json($records);
+        return response()->json($this->formatRecords($records));
     }
 
+
+    // Obtener los últimos N registros de un día específico
     public function LatestByDate(Request $request) {
         $date = $request->query('date'); // YYYY-MM-DD
         $limit = $request->query('limit', 10);
@@ -187,14 +206,13 @@ class CalidadAireController extends Controller
             ->limit($limit)
             ->get();
 
-        return response()->json($records);
+        return response()->json($this->formatRecords($records));
     }
     
 
 
-
-    public function exportCsv()
-{
+    // Exportar datos a CSV
+    public function exportCsv(){
     $filename = 'registros_calidad_aire_' . date('Ymd_His') . '.csv';
     $records = DB::table('registros_calidad_aire')->orderBy('fecha_hora')->get();
 
@@ -206,7 +224,7 @@ class CalidadAireController extends Controller
     header('Content-Disposition: attachment; filename="' . $filename . '"');
 
     // Cabecera del CSV
-    fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
+    fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Amon','Created_At','Updated_At']);
 
     // Contenido
     foreach ($records as $row) {
@@ -220,6 +238,7 @@ class CalidadAireController extends Controller
             $row->pm25,
             $row->temp,
             $row->hum,
+            $row->amon,
             $row->created_at,
             $row->updated_at,
         ]);
@@ -228,6 +247,5 @@ class CalidadAireController extends Controller
     fclose($handle);
     exit;
 }
-
 
 }
