@@ -34,8 +34,8 @@ Route::get('/device/latest-by-date', [CalidadAireController::class, 'LatestByDat
 Route::get('/device/export-csv', [App\Http\Controllers\CalidadAireController::class, 'exportCsv']);
 
 
-
-
+// Promedio del día actual
+Route::get('/device/today-average', [CalidadAireController::class, 'todayAverage']);
 
 
 

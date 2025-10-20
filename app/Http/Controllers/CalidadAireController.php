@@ -200,6 +200,40 @@ class CalidadAireController extends Controller
 
         return response()->json($records);
     }
+
+    // Obtener promedio de los datos del día actual
+    public function todayAverage(Request $request)
+    {
+        // Usamos la zona horaria configurada en la app (config/app.php)
+        $start = Carbon::today()->startOfDay()->toDateTimeString();
+        $end = Carbon::today()->endOfDay()->toDateTimeString();
+
+        $row = DB::table('registros_calidad_aire')
+            ->whereBetween('fecha_hora', [$start, $end])
+            ->selectRaw(
+                'avg(co) as co, avg(nox) as nox, avg(sox) as sox, avg(pm10) as pm10, avg(pm25) as pm25, avg(temp) as temp, avg(hum) as hum'
+            )
+            ->first();
+
+        // Formatear valores (null si no hay registros, o float con 2 decimales)
+        $format = function ($v) {
+            return is_null($v) ? null : round((float) $v, 2);
+        };
+
+        $result = [
+            'co'   => $format($row->co ?? null),
+            'nox'  => $format($row->nox ?? null),
+            'sox'  => $format($row->sox ?? null),
+            'pm10' => $format($row->pm10 ?? null),
+            'pm25' => $format($row->pm25 ?? null),
+            'temp' => $format($row->temp ?? null),
+            'hum'  => $format($row->hum ?? null),
+            'start' => $start,
+            'end' => $end,
+        ];
+
+        return response()->json($result);
+    }
     
 
 
