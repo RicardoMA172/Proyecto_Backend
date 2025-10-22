@@ -237,41 +237,53 @@ class CalidadAireController extends Controller
     
 
 
-    // Exportar datos a CSV
-    public function exportCsv(){
-    $filename = 'registros_calidad_aire_' . date('Ymd_His') . '.csv';
-    $records = DB::table('registros_calidad_aire')->orderBy('fecha_hora')->get();
+    // Exportar datos a CSV (soporta ?date=YYYY-MM-DD para exportar un día)
+    public function exportCsv(Request $request){
+        $date = $request->query('date');
+        if ($date) {
+            $start = $date . ' 00:00:00';
+            $end = $date . ' 23:59:59';
+            $records = DB::table('registros_calidad_aire')
+                ->whereBetween('fecha_hora', [$start, $end])
+                ->orderBy('fecha_hora')
+                ->get();
+        } else {
+            $records = DB::table('registros_calidad_aire')->orderBy('fecha_hora')->get();
+        }
 
-    // Abrir flujo de salida
-    $handle = fopen('php://output', 'w');
+        $filename = 'registros_calidad_aire_' . ($date ?? date('Ymd')) . '.csv';
 
-    // Cabeceras HTTP para forzar descarga
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $headers = [
+            'Content-Type' => 'text/csv',
+            // Forzar descarga con nombre
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            // Asegurar CORS para el frontend (también es recomendable configurar FRONTEND_URL en env de producción)
+            'Access-Control-Allow-Origin' => env('FRONTEND_URL', '*'),
+            'Access-Control-Allow-Credentials' => 'true',
+        ];
 
-    // Cabecera del CSV
-    fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
-
-    // Contenido
-    foreach ($records as $row) {
-        fputcsv($handle, [
-            $row->id,
-            $row->fecha_hora,
-            $row->co,
-            $row->nox,
-            $row->sox,
-            $row->pm10,
-            $row->pm25,
-            $row->temp,
-            $row->hum,
-            $row->created_at,
-            $row->updated_at,
-        ]);
+        return response()->streamDownload(function() use ($records) {
+            $handle = fopen('php://output', 'w');
+            // Cabecera del CSV
+            fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
+            foreach ($records as $row) {
+                fputcsv($handle, [
+                    $row->id,
+                    $row->fecha_hora,
+                    $row->co,
+                    $row->nox,
+                    $row->sox,
+                    $row->pm10,
+                    $row->pm25,
+                    $row->temp,
+                    $row->hum,
+                    $row->created_at,
+                    $row->updated_at,
+                ]);
+            }
+            fclose($handle);
+        }, $filename, $headers);
     }
-
-    fclose($handle);
-    exit;
-}
 
 
 }
