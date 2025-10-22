@@ -20,7 +20,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:4200'),
-    'https://boisterous-cajeta-e9a57b.netlify.app', // tu URL de producción
+    'https://boisterous-cajeta-e9a57b.netlify.app', // producción
     ],
 
     'allowed_origins_patterns' => [],
