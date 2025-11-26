@@ -84,14 +84,24 @@ class CalidadAireController extends Controller
 
         $data = $validator->validated();
 
-        // Si no mandan fecha_hora, usar now()
+        // Si no mandan fecha_hora, usar now();
+        // Si mandan fecha_hora, restamos 6 horas para corregir el desfase del transmisor
         if (empty($data['fecha_hora'])) {
-            $data['fecha_hora'] = Carbon::now()->toDateTimeString();
+            $fechaHoraToStore = Carbon::now();
+        } else {
+            try {
+                $fechaParsed = Carbon::parse($data['fecha_hora']);
+                // Restar 6 horas según solicitud
+                $fechaHoraToStore = $fechaParsed->subHours(6);
+            } catch (\Exception $e) {
+                // Si falla el parseo, fallback a now()
+                $fechaHoraToStore = Carbon::now();
+            }
         }
 
         // Insertar sin especificar `id` (autoincrement)
         $insertId = DB::table('registros_calidad_aire')->insertGetId([
-            'fecha_hora' => $data['fecha_hora'],
+            'fecha_hora' => $fechaHoraToStore->toDateTimeString(),
             'temp'       => $data['temp'] ?? null,
             'hum'        => $data['hum'] ?? null,
             'co'         => $data['co'] ?? null,
