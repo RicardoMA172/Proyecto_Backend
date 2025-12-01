@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 
@@ -83,6 +84,14 @@ class CalidadAireController extends Controller
         }
 
         $data = $validator->validated();
+
+        // DEBUG: log request payload and validated data to verify middleware normalization
+        try {
+            Log::info('storeDeviceData - full request', $request->all());
+            Log::info('storeDeviceData - validated data', $data);
+        } catch (\Exception $e) {
+            // ignore logging errors in production
+        }
 
         // Si no mandan fecha_hora, usar now();
         // Nota: la normalización (restar 6 horas) se realiza en el middleware `NormalizeFechaHora`.
