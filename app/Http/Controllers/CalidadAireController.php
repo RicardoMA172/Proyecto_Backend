@@ -15,10 +15,10 @@ class CalidadAireController extends Controller
         $tabla = 'registros_calidad_aire';
 
         return response()->json([
-            'co' => [
-                'promedio' => DB::table($tabla)->avg('co'),
-                'max'     => DB::table($tabla)->max('co'),
-                'min'     => DB::table($tabla)->min('co'),
+            'co2' => [
+                'promedio' => DB::table($tabla)->avg('co2'),
+                'max'     => DB::table($tabla)->max('co2'),
+                'min'     => DB::table($tabla)->min('co2'),
             ],
             'nox' => [
                 'promedio' => DB::table($tabla)->avg('nox'),
@@ -54,7 +54,7 @@ class CalidadAireController extends Controller
     }
 
     // Endpoints por contaminante (devuelven historial)
-    public function co()  { return DB::table('registros_calidad_aire')->select('fecha_hora','co')->orderBy('fecha_hora')->get(); }
+    public function co2()  { return DB::table('registros_calidad_aire')->select('fecha_hora','co2')->orderBy('fecha_hora')->get(); }
     public function nox() { return DB::table('registros_calidad_aire')->select('fecha_hora','nox')->orderBy('fecha_hora')->get(); }
     public function sox() { return DB::table('registros_calidad_aire')->select('fecha_hora','sox')->orderBy('fecha_hora')->get(); }
     public function pm10(){ return DB::table('registros_calidad_aire')->select('fecha_hora','pm10')->orderBy('fecha_hora')->get(); }
@@ -72,6 +72,8 @@ class CalidadAireController extends Controller
             'fecha_hora' => 'sometimes|date',
             'temp'       => 'nullable|numeric',
             'hum'        => 'nullable|numeric',
+            // Accept both `co2` and legacy `co` from transmitters for compatibility
+            'co2'        => 'nullable|numeric',
             'co'         => 'nullable|numeric',
             'nox'        => 'nullable|numeric',
             'sox'        => 'nullable|numeric',
@@ -128,7 +130,8 @@ class CalidadAireController extends Controller
             'fecha_hora' => $fechaHoraToStore->toDateTimeString(),
             'temp'       => $data['temp'] ?? null,
             'hum'        => $data['hum'] ?? null,
-            'co'         => $data['co'] ?? null,
+            // Store into `co2` column. Prefer explicit `co2` field, fall back to legacy `co` if present.
+            'co2'        => $data['co2'] ?? $data['co'] ?? null,
             'nox'        => $data['nox'] ?? null,
             'sox'        => $data['sox'] ?? null,
             'pm10'       => $data['pm10'] ?? null,
@@ -167,7 +170,7 @@ class CalidadAireController extends Controller
 
         $datos = DB::table('registros_calidad_aire')
             ->whereBetween('fecha_hora', [$startAdj, $endAdj])
-            ->select('fecha_hora', 'co')
+            ->select('fecha_hora', 'co2')
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
@@ -281,7 +284,7 @@ class CalidadAireController extends Controller
         $row = DB::table('registros_calidad_aire')
             ->whereBetween('fecha_hora', [$start, $end])
             ->selectRaw(
-                'avg(co) as co, avg(nox) as nox, avg(sox) as sox, avg(pm10) as pm10, avg(pm25) as pm25, avg(temp) as temp, avg(hum) as hum'
+                'avg(co2) as co2, avg(nox) as nox, avg(sox) as sox, avg(pm10) as pm10, avg(pm25) as pm25, avg(temp) as temp, avg(hum) as hum'
             )
             ->first();
 
@@ -291,7 +294,7 @@ class CalidadAireController extends Controller
         };
 
         $result = [
-            'co'   => $format($row->co ?? null),
+            'co2'   => $format($row->co2 ?? $row->co ?? null),
             'nox'  => $format($row->nox ?? null),
             'sox'  => $format($row->sox ?? null),
             'pm10' => $format($row->pm10 ?? null),
@@ -339,12 +342,13 @@ class CalidadAireController extends Controller
         return response()->streamDownload(function() use ($records) {
             $handle = fopen('php://output', 'w');
             // Cabecera del CSV
-            fputcsv($handle, ['ID','Fecha_Hora','CO','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
+            fputcsv($handle, ['ID','Fecha_Hora','CO2','NOX','SOX','PM10','PM25','Temp','Hum','Created_At','Updated_At']);
             foreach ($records as $row) {
                 fputcsv($handle, [
                     $row->id,
                     $row->fecha_hora,
-                    $row->co,
+                    // Prefer co2 column; fall back to co if present
+                    $row->co2 ?? $row->co ?? null,
                     $row->nox,
                     $row->sox,
                     $row->pm10,

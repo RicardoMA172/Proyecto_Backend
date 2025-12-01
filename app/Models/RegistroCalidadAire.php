@@ -13,7 +13,7 @@ class RegistroCalidadAire extends Model
 
     protected $fillable = [
         'id',
-        'co',
+        'co2',
         'nox',
         'sox',
         'pm10',

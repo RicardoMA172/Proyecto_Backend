@@ -17,7 +17,7 @@ Route::post('/login', [LoginController::class, 'login']);
 
 // Rutas públicas para datos de calidad del aire
 Route::get('/dashboard', [CalidadAireController::class, 'dashboard']);
-Route::get('/co', [CalidadAireController::class, 'co']);
+Route::get('/co2', [CalidadAireController::class, 'co2']);
 Route::get('/nox', [CalidadAireController::class, 'nox']);
 Route::get('/sox', [CalidadAireController::class, 'sox']);
 Route::get('/pm10', [CalidadAireController::class, 'pm10']);
@@ -36,4 +36,4 @@ Route::get('/device/today-average', [CalidadAireController::class, 'todayAverage
 Route::get('/device/export-csv', [CalidadAireController::class, 'exportCsv']);
 
 // Rutas auxiliares
-Route::get('/co/between', [CalidadAireController::class, 'coBetween']);
+Route::get('/co2/between', [CalidadAireController::class, 'coBetween']);
