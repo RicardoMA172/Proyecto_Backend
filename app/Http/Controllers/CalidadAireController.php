@@ -85,14 +85,12 @@ class CalidadAireController extends Controller
         $data = $validator->validated();
 
         // Si no mandan fecha_hora, usar now();
-        // Si mandan fecha_hora, restamos 6 horas para corregir el desfase del transmisor
+        // Nota: la normalización (restar 6 horas) se realiza en el middleware `NormalizeFechaHora`.
         if (empty($data['fecha_hora'])) {
             $fechaHoraToStore = Carbon::now();
         } else {
             try {
-                $fechaParsed = Carbon::parse($data['fecha_hora']);
-                // Restar 6 horas según solicitud
-                $fechaHoraToStore = $fechaParsed->subHours(6);
+                $fechaHoraToStore = Carbon::parse($data['fecha_hora']);
             } catch (\Exception $e) {
                 // Si falla el parseo, fallback a now()
                 $fechaHoraToStore = Carbon::now();
