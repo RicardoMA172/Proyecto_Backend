@@ -94,12 +94,14 @@ class CalidadAireController extends Controller
         }
 
         // Si no mandan fecha_hora, usar now();
-        // Nota: la normalización (restar 6 horas) se realiza en el middleware `NormalizeFechaHora`.
         if (empty($data['fecha_hora'])) {
             $fechaHoraToStore = Carbon::now();
         } else {
             try {
-                $fechaHoraToStore = Carbon::parse($data['fecha_hora']);
+                // Aseguramos que en el momento de guardar se reste 6 horas.
+                // Comentario: si más arriba un middleware ya lo hizo, esta resta podría duplicarse;
+                // por eso, si tu entorno ya normaliza en middleware, elimina la siguiente línea.
+                $fechaHoraToStore = Carbon::parse($data['fecha_hora'])->subHours(6);
             } catch (\Exception $e) {
                 // Si falla el parseo, fallback a now()
                 $fechaHoraToStore = Carbon::now();
