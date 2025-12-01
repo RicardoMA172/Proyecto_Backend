@@ -85,28 +85,43 @@ class CalidadAireController extends Controller
 
         $data = $validator->validated();
 
-        // DEBUG: log request payload and validated data to verify middleware normalization
+        // DEBUG: log request payload and validated data
         try {
             Log::info('storeDeviceData - full request', $request->all());
             Log::info('storeDeviceData - validated data', $data);
-        } catch (\Exception $e) {
-            // ignore logging errors in production
+        } catch (\Exception $e) {}
+
+        // Normalizar fecha_hora: aceptamos múltiples nombres que el dispositivo pueda usar.
+        $possibleKeys = ['fecha_hora', 'timestamp', 'timestamp_tx', 'timestamp_tx_original', 'timestamp_device', 'device_time'];
+        $rawDate = null;
+        foreach ($possibleKeys as $k) {
+            if (array_key_exists($k, $data) && !empty($data[$k])) { $rawDate = $data[$k]; break; }
+            if ($request->has($k) && !empty($request->input($k))) { $rawDate = $request->input($k); break; }
         }
 
-        // Si no mandan fecha_hora, usar now();
-        if (empty($data['fecha_hora'])) {
-            $fechaHoraToStore = Carbon::now();
-        } else {
+        // Helper: normaliza un datetime entrante. Si la cadena contiene un offset/z (Z or +/-), la respeta;
+        // si no contiene zona se asume que es hora del transmisor (UTC-6) y le restamos 6 horas.
+        $normalizeIncoming = function ($raw) {
+            if (empty($raw)) return Carbon::now()->subHours(6);
+            // detecta timezone en el string
+            $hasZone = preg_match('/Z$|[\+\-]\d{2}(:?\d{2})?$/', trim($raw));
             try {
-                // Aseguramos que en el momento de guardar se reste 6 horas.
-                // Comentario: si más arriba un middleware ya lo hizo, esta resta podría duplicarse;
-                // por eso, si tu entorno ya normaliza en middleware, elimina la siguiente línea.
-                $fechaHoraToStore = Carbon::parse($data['fecha_hora'])->subHours(6);
+                $dt = Carbon::parse($raw);
+                if (!$hasZone) {
+                    // interpretamos como hora local del transmisor (UTC-6), restamos 6h
+                    $dt = $dt->subHours(6);
+                } else {
+                    // convertir a UTC para almacenar de forma consistente
+                    $dt = $dt->setTimezone('UTC');
+                }
+                return $dt;
             } catch (\Exception $e) {
-                // Si falla el parseo, fallback a now()
-                $fechaHoraToStore = Carbon::now();
+                // fallback
+                return Carbon::now()->subHours(6);
             }
-        }
+        };
+
+        $fechaHoraToStore = $normalizeIncoming($rawDate);
 
         // Insertar sin especificar `id` (autoincrement)
         $insertId = DB::table('registros_calidad_aire')->insertGetId([
@@ -136,8 +151,22 @@ class CalidadAireController extends Controller
             return response()->json(['message' => 'start y end son requeridos (YYYY-MM-DD HH:MM:SS)'], 400);
         }
 
+        // Normalizar parámetros: si vienen sin zona asumimos UTC-6 del transmisor
+        $normalize = function ($raw) {
+            if (empty($raw)) return $raw;
+            $hasZone = preg_match('/Z$|[\+\-]\d{2}(:?\d{2})?$/', trim($raw));
+            try {
+                $dt = Carbon::parse($raw);
+                if (!$hasZone) $dt = $dt->subHours(6);
+                return $dt->toDateTimeString();
+            } catch (\Exception $e) { return $raw; }
+        };
+
+        $startAdj = $normalize($start);
+        $endAdj = $normalize($end);
+
         $datos = DB::table('registros_calidad_aire')
-            ->whereBetween('fecha_hora', [$start, $end])
+            ->whereBetween('fecha_hora', [$startAdj, $endAdj])
             ->select('fecha_hora', 'co')
             ->orderBy('fecha_hora', 'asc')
             ->get();
@@ -178,8 +207,16 @@ class CalidadAireController extends Controller
             return $this->allRecords();
         }
 
+        // Normalizar since
+        $hasZone = preg_match('/Z$|[\+\-]\d{2}(:?\d{2})?$/', trim($since));
+        try {
+            $dt = Carbon::parse($since);
+            if (!$hasZone) $dt = $dt->subHours(6);
+            $sinceAdj = $dt->toDateTimeString();
+        } catch (\Exception $e) { $sinceAdj = $since; }
+
         $datos = DB::table('registros_calidad_aire')
-            ->where('fecha_hora', '>', $since)
+            ->where('fecha_hora', '>', $sinceAdj)
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
@@ -194,8 +231,16 @@ class CalidadAireController extends Controller
         $start = $date . ' 00:00:00';
         $end   = $date . ' 23:59:59';
 
+        // Ajustar por offset del transmisor (si el frontend pasa fecha local)
+        try {
+            $s = Carbon::parse($start)->subHours(6)->toDateTimeString();
+            $e = Carbon::parse($end)->subHours(6)->toDateTimeString();
+        } catch (\Exception $e) {
+            $s = $start; $e = $end;
+        }
+
         $records = DB::table('registros_calidad_aire')
-            ->whereBetween('fecha_hora', [$start, $end])
+            ->whereBetween('fecha_hora', [$s, $e])
             ->orderBy('fecha_hora', 'asc')
             ->get();
 
@@ -210,9 +255,15 @@ class CalidadAireController extends Controller
 
         $start = $date . ' 00:00:00';
         $end = $date . ' 23:59:59';
+        try {
+            $s = Carbon::parse($start)->subHours(6)->toDateTimeString();
+            $e = Carbon::parse($end)->subHours(6)->toDateTimeString();
+        } catch (\Exception $e) {
+            $s = $start; $e = $end;
+        }
 
         $records = DB::table('registros_calidad_aire')
-            ->whereBetween('fecha_hora', [$start, $end])
+            ->whereBetween('fecha_hora', [$s, $e])
             ->orderBy('fecha_hora', 'desc')
             ->limit($limit)
             ->get();
@@ -262,8 +313,12 @@ class CalidadAireController extends Controller
         if ($date) {
             $start = $date . ' 00:00:00';
             $end = $date . ' 23:59:59';
+            try {
+                $s = Carbon::parse($start)->subHours(6)->toDateTimeString();
+                $e = Carbon::parse($end)->subHours(6)->toDateTimeString();
+            } catch (\Exception $e) { $s = $start; $e = $end; }
             $records = DB::table('registros_calidad_aire')
-                ->whereBetween('fecha_hora', [$start, $end])
+                ->whereBetween('fecha_hora', [$s, $e])
                 ->orderBy('fecha_hora')
                 ->get();
         } else {
